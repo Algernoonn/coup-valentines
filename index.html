@@ -934,22 +934,35 @@
                         };
                         state.message = `Coup succeeded! Player ${opponent}, your ${targetChar} is eliminated`;
                     } else {
-                        // Coup failed - opponent reveals all and draws 2
-                        if (state.deck.length < 2) {
+                        // Coup failed - opponent draws cards
+                        const opponentHandSize = state.players[opponent].hand.length;
+                        if (opponentHandSize <= 1 && state.deck.length >= 1) {
+                            // Only 1 card — draw 1, randomly keep 1
+                            const drawn = state.deck.pop();
+                            const pool = [...state.players[opponent].hand, drawn];
+                            const kept = pool[Math.floor(Math.random() * pool.length)];
+                            const returned = pool.filter((_, i) => i !== pool.indexOf(kept));
+                            state.players[opponent].hand = [kept];
+                            returned.forEach(c => state.deck.push(c));
+                            state.deck = shuffleArray(state.deck);
+                            state.currentPlayer = opponent;
+                            state.actionState = null;
+                            state.message = `Coup failed! P${opponent} doesn't have ${targetChar}. P${opponent} drew a random card.`;
+                        } else if (state.deck.length < 2) {
                             state.message = 'Not enough cards in deck for failed coup';
                             state.currentPlayer = opponent;
                             state.actionState = null;
-                            return state;
+                        } else {
+                            const card1 = state.deck.pop();
+                            const card2 = state.deck.pop();
+                            state.actionState = {
+                                type: 'coup_failed',
+                                loser: opponent,
+                                cards: [...state.players[opponent].hand, card1, card2],
+                                waitingFor: 'select_cards_coup_failed'
+                            };
+                            state.message = `Coup failed! Player ${opponent} doesn't have ${targetChar}. Pick 2 cards to keep from 4`;
                         }
-                        const card1 = state.deck.pop();
-                        const card2 = state.deck.pop();
-                        state.actionState = {
-                            type: 'coup_failed',
-                            loser: opponent,
-                            cards: [...state.players[opponent].hand, card1, card2],
-                            waitingFor: 'select_cards_coup_failed'
-                        };
-                        state.message = `Coup failed! Player ${opponent} doesn't have ${targetChar}. Pick 2 cards to keep from 4`;
                     }
                     return state;
                 });
@@ -977,24 +990,38 @@
                         state.message = `Assassination hit! Player ${opponent}'s ${targetChar} is eliminated`;
                         addLogEntry(state, `P${actor} assassinated P${opponent}'s ${targetChar} — HIT`);
                     } else {
-                        // Assassination missed - opponent draws 2, picks 2 to keep
-                        if (state.deck.length < 2) {
+                        // Assassination missed - opponent draws cards
+                        const oppHandSize = state.players[opponent].hand.length;
+                        if (oppHandSize <= 1 && state.deck.length >= 1) {
+                            // Only 1 card — draw 1, randomly keep 1
+                            const drawn = state.deck.pop();
+                            const pool = [...state.players[opponent].hand, drawn];
+                            const kept = pool[Math.floor(Math.random() * pool.length)];
+                            const returned = pool.filter((_, i) => i !== pool.indexOf(kept));
+                            state.players[opponent].hand = [kept];
+                            returned.forEach(c => state.deck.push(c));
+                            state.deck = shuffleArray(state.deck);
+                            state.currentPlayer = opponent;
+                            state.actionState = null;
+                            state.message = `Assassination missed! P${opponent} drew a random card.`;
+                            addLogEntry(state, `P${actor} assassination missed P${opponent} (guessed ${targetChar}) — P${opponent} drew random card`);
+                        } else if (state.deck.length < 2) {
                             state.message = `Assassination missed but not enough cards in deck`;
                             state.currentPlayer = opponent;
                             state.actionState = null;
                             addLogEntry(state, `P${actor} assassination missed P${opponent} (guessed ${targetChar}) — deck empty`);
-                            return state;
+                        } else {
+                            const card1 = state.deck.pop();
+                            const card2 = state.deck.pop();
+                            state.actionState = {
+                                type: 'assassinate_failed',
+                                loser: opponent,
+                                cards: [...state.players[opponent].hand, card1, card2],
+                                waitingFor: 'select_cards_coup_failed'
+                            };
+                            state.message = `Assassination missed! Player ${opponent} doesn't have ${targetChar}. Pick 2 cards to keep from 4`;
+                            addLogEntry(state, `P${actor} assassination missed P${opponent} (guessed ${targetChar}) — P${opponent} picks 2 cards`);
                         }
-                        const card1 = state.deck.pop();
-                        const card2 = state.deck.pop();
-                        state.actionState = {
-                            type: 'assassinate_failed',
-                            loser: opponent,
-                            cards: [...state.players[opponent].hand, card1, card2],
-                            waitingFor: 'select_cards_coup_failed'
-                        };
-                        state.message = `Assassination missed! Player ${opponent} doesn't have ${targetChar}. Pick 2 cards to keep from 4`;
-                        addLogEntry(state, `P${actor} assassination missed P${opponent} (guessed ${targetChar}) — P${opponent} picks 2 cards`);
                     }
                     return state;
                 });
@@ -1627,12 +1654,13 @@
                                                 </button>
                                             )}
                                             <div className="flex gap-2">
+                                                {gameState.actionState.type !== 'foreign_aid' && (
                                                 <button
                                                     onClick={() => respondToAction('challenge')}
                                                     className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 px-4 rounded-2xl font-medium transition-all hover:scale-[1.02] min-h-[48px]"
                                                 >
                                                     Challenge!
-                                                </button>
+                                                </button>)}
                                                 <button
                                                     onClick={() => respondToAction('allow')}
                                                     className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-2xl font-medium transition-all hover:scale-[1.02] min-h-[48px]"
